@@ -122,7 +122,7 @@ Consequencia obrigatoria:
 | T02.58 | concluida | Realizar prova real humana do endpoint | Humano executou `POST /transcriptions/v1.0.0` em modo real, com audio real, e confirmou `200 OK`, texto nao vazio, texto coerente com o audio, `engine.name` igual a `mlx-whisper` e ausencia de vazamento sensivel |
 | T02.59 | concluida | Registrar resultado da prova real humana | Resultado da prova real registrado na E02, T02 e plano antes do commit |
 | T02.60 | concluida | Atualizar checklist aplicavel da E02 com a prova real | Checklist da E02 deixa claro que a prova real humana e criterio de fechamento de endpoint tipo `E` |
-| T02.61 | pendente | Realizar commit de fechamento | Commit ocorre somente apos a prova real humana, seu registro documental e antes de qualquer trabalho na E03 |
+| T02.61 | concluida | Realizar commit de fechamento | Commit principal da E02 realizado apos a prova real humana, seu registro documental e antes do prosseguimento efetivo para a E03 |
 
 ---
 
