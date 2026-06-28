@@ -3,6 +3,7 @@ import re
 import secrets
 from time import perf_counter
 from typing import Annotated
+from pathlib import Path
 
 from fastapi import (
     APIRouter,
@@ -15,6 +16,8 @@ from fastapi import (
     status,
 )
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from services.audio_converter import prepare_mp3_for_whisper
+
 
 from schemas.transcriptions import TranscriptionResponse
 from routers.endpoint_security import require_secure_transport_for_public_request
@@ -43,10 +46,11 @@ security = HTTPBearer(auto_error=False)
 logger = logging.getLogger("mindvox.transcriptions")
 logger.addHandler(logging.NullHandler())
 
-SUPPORTED_EXTENSIONS = {".wav", ".m4a"}
+SUPPORTED_EXTENSIONS = {".wav", ".m4a", ".mp3"}
 SUPPORTED_CONTENT_TYPES = {
     ".wav": {"audio/wav", "audio/x-wav", "audio/vnd.wave"},
     ".m4a": {"audio/mp4", "audio/m4a", "audio/x-m4a"},
+    ".mp3": {"audio/mpeg", "audio/mp3", "application/octet-stream"},
 }
 LANGUAGE_PATTERN = re.compile(r"^[a-z]{2}(?:-[A-Z]{2})?$")
 
@@ -147,7 +151,7 @@ async def transcribe_recorded_audio(
         File(
             description=(
                 "Required recorded audio file to be transcribed. Supported formats "
-                "are .wav and .m4a. Example: class-2026-06-09.wav."
+                "are .wav, .m4a, and .mp3. Example: class-2026-06-09.wav."
             ),
         ),
     ],
@@ -227,11 +231,42 @@ async def transcribe_recorded_audio(
         content_type=audio_file.content_type,
     )
 
+    # # Convert MP3 files to WAV using audio_converter.py
+    # if extension == ".mp3":
+    #     temp_wav_path = Path("temp_transcription.wav")
+    #     audio_bytes = await audio_file.read()
+    #     prepare_mp3_for_whisper(audio_bytes, temp_wav_path)
+    #     temp_wav_path.unlink()  # Clean up temporary file
+        
+    # else:
+    #     audio_bytes = await read_upload_with_limit(
+    #         audio_file,
+    #         settings=settings,
+    #         detail="Audio file exceeds the maximum allowed size.",
+    #     )
+        # 1. Garante que o arquivo respeite o limite de tamanho definido no .env
     audio_bytes = await read_upload_with_limit(
         audio_file,
         settings=settings,
         detail="Audio file exceeds the maximum allowed size.",
     )
+
+     # 2. INTERCEPTADOR MÁGICO DE MP3
+    if extension == ".mp3":
+        # Cria um caminho estável e seguro na pasta oficial de outputs do projeto
+        temp_wav_path = Path(settings.transcription_output_dir) / f"converted_{secrets.token_hex(4)}.wav"
+        
+        # Converte o MP3 em WAV 16kHz Mono 16-bit PCM físico
+        prepare_mp3_for_whisper(audio_bytes, temp_wav_path)
+        
+        # SOBRESCREVENDO O PIPELINE DO MINDVOX:
+        # Substitui os bytes compactados do MP3 pelos bytes descompactados do WAV gerado
+        audio_bytes = temp_wav_path.read_bytes()
+        
+        # Engana os validadores de formato mudando as extensões de controle
+        extension = ".wav"
+        audio_file.filename = str(temp_wav_path.name)
+
     _validate_audio_container(extension=extension, audio_bytes=audio_bytes)
 
     started_at = perf_counter()

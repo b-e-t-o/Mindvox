@@ -35,6 +35,12 @@ class LocalLLMRuntime:
         self._started_by_app = False
 
     def start_if_required(self) -> None:
+        # ATALHO CORRIGIDO: Se o modo for "provider" ou o autostart estiver desligado, não faça nada.
+        # Evita a busca e inicialização forçada do executável llama-server.
+        if self._settings.postprocessing_mode == "provider" or not self._settings.local_llm_autostart:
+            print("INFO: Ignorando inicialização do llama-server local (Usando Ollama/External Provider)")
+            return
+
         if self._settings.postprocessing_mode != "local":
             self._logger.info(
                 "local_llm_autostart_skipped mode=%s",
