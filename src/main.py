@@ -1,8 +1,11 @@
 import asyncio
 import logging
+import webbrowser  # <--- IMPORTADO
 from contextlib import asynccontextmanager, suppress
+from fastapi.responses import HTMLResponse
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles  # <--- IMPORTADO
 from routers.health import router as health_router
 from routers.processed_transcriptions import router as processed_transcriptions_router
 from routers.transcriptions import router as transcriptions_router
@@ -51,6 +54,17 @@ async def lifespan(app: FastAPI):
                 stop_event=stop_queue,
             )
         )
+
+    # === GATILHO DO FRONTEND ADICIONADO ===
+    # Abre a interface de forma assíncrona após 1.5 segundos para garantir que o Uvicorn subiu
+    async def _open_browser():
+        await asyncio.sleep(1.5) # Aguarda o Uvicorn estabilizar a porta 8000
+        url_exata = "http://localhost:8000/index.html"
+        logger.info(f"Abrindo interface gráfica em: {url_exata}")
+        webbrowser.open(url_exata)
+        
+    asyncio.create_task(_open_browser())
+    # =======================================
 
     try:
         yield
@@ -127,6 +141,11 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(transcriptions_router)
     app.include_router(processed_transcriptions_router)
+
+    # 2. ADICIONE ESSA LINHA AQUI (No final de tudo, antes do return app):
+    # Ela monta a pasta frontend na raiz de arquivos, permitindo abrir /index.html
+    app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+
     return app
 
 
